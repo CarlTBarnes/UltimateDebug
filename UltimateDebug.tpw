@@ -1,267 +1,37 @@
-#EXTENSION(UltimateDebugGlobal, 'UltimateDebug (Global Extension)'),APPLICATION(ProcedureInfoExtension)
-#PREPARE
-  #INSERT(%CalcFamily, %CLSkelFamily)
-#ENDPREPARE
-#BOXED('Information')
-#INSERT(%CopyrightInfo)
-#ENDBOXED
-#DISPLAY
-#SHEET,HSCROLL
-#TAB('General')
-  #DISPLAY
-  #PROMPT('Global Class:',@S40),%CLSkelClass,AT(90,,95,10),REQ,DEFAULT('UD')
-  #PROMPT('Multi DLL',CHECK),%CLSkelMultiDLL,AT(90),DEFAULT(0)
-  #ENABLE(%CLSkelMultiDLL=1),ClEAR
-    #PROMPT('Declaration:',DROP('Declared in another App[0]|Declared in this app[1]')),%CLSkelMultiDLLData,DEFAULT(0),AT(90,,95,10)
-  #ENDENABLE
-  #PROMPT('Prefix:',@S20),%CLDebugPrefix,DEFAULT('!')
-  #PROMPT('Log File Name:',@S120),%CLLogFileName,DEFAULT('DebugLog.txt') 
-  #INSERT(%TabCopyright)
-#ENDTAB  
-#INSERT(%TabProcedureInfo)
-#INSERT(%TabDefaults)
-#INSERT(%TabInstructions)
-#INSERT(%TabContributors)
-#INSERT(%TabClarionVer)
-#ENDSHEET
-#DISPLAY
-#DISPLAY
-#PROMPT('Disable template',CHECK),%CLSkelAppDisable,AT(10),DEFAULT(0)
-
-#ATSTART          
-  #DECLARE(%ThisApplicationExtension)
-  #DECLARE(%CLSkelDataExternal)
-  #IF(%CLSkelMultiDLL=1 AND %CLSkelMultiDLLData=0)
-    #SET(%CLSkelDataExternal,',EXTERNAL,DLL(dll_mode)')
-  #ENDIF
-#ENDAT
-
-#AT(%AfterGlobalIncludes),WHERE(~%CLSkelAppDisable)
-  INCLUDE('UltimateDebug.INC'),ONCE
-#ENDAT
-
-#AT(%CustomGlobalDeclarations),WHERE(~%CLSkelAppDisable)
-  #INSERT(%CalcFamily, %CLSkelFamily)
-  #IF(%CLSkelFamily='LEGACY')
-  #PROJECT('UltimateDebug.CLW')
-  #ENDIF
-#ENDAT
-
-#AT(%GlobalData),WHERE(~%CLSkelAppDisable)
-CLSkel_TplVersion    CSTRING('v%CLSkelTPLVersion')%CLSkelDataExternal
-%CLSkelClass         CLASS(UltimateDebug)%CLSkelDataExternal
-                     END
-#ENDAT
-
-#AT(%DLLExportList),WHERE(%CLSkelMultiDLL=1 AND %CLSkelMultiDLLData=1 AND ~%CLSkelAppDisable)
-  $CLSkel_TplVersion  @?
-  $%CLSkelClass       @?
-#ENDAT
-
-#AT(%ProgramSetup),WHERE(~%CLSkelAppDisable)
-%CLSkelClass.Init()
-%CLSkelClass.DebugPrefix = '%CLDebugPrefix'
-%CLSkelClass.ASCIIFileName = '%CLLogFileName' 
-%CLSkelClass.ProcAlertKey = %UDProcAlert
-#ENDAT
-
-#AT(%ProgramEnd),WHERE(~%CLSkelAppDisable)
-  %CLSkelClass.Kill()
-#ENDAT
-#!-------------------------------------------------
-#EXTENSION(UltimateDebugEvent, 'UltimateDebug DebugEvent Support'), WINDOW
-#Display('Ultimate Debug Event Template') 
-#PROMPT('Use Global Settings',CHECK),%UseGlobalDefaults,Default(%True)
-#ENABLE(NOT %UseGlobalDefaults)
-#PROMPT('Show All',CHECK),%ShowAll,DEFAULT(%True),AT(10)  
-#DISPLAY('')
-#ENABLE(NOT %Showall)
-#PROMPT('ShowField',CHECK),%ShowField,AT(10,,90),Default(%GlobalShowField)
-#PROMPT('ShowFocus',CHECK),%ShowFocus,Default(%GlobalShowFocus)
-#PROMPT('ShowSelected',CHECK),%ShowSelected,AT(10,,90),Default(%GlobalShowSelected)
-#PROMPT('ShowSelStart',CHECK),%ShowSelStart,Default(%GlobalShowSelStart)
-#PROMPT('ShowSelEnd',CHECK),%ShowSelEnd,AT(10,,90),Default(%GlobalShowSelEnd)
-#PROMPT('ShowKeyCode',CHECK),%ShowKeyCode,Default(%GlobalShowKeyCode)
-#PROMPT('ShowError',CHECK),%ShowError,AT(10,,90),Default(%GlobalShowError)
-#PROMPT('ShowThread',CHECK),%ShowThread,Default(%GlobalShowThread)
-#PROMPT('ShowContents',CHECK),%ShowContents,AT(10,,90),Default(%GlobalShowContents)
-#PROMPT('ShowScreenText',CHECK),%ShowScreenText,Default(%GlobalShowScreenText)
-#PROMPT('ShowAcceptAll',CHECK),%ShowAcceptAll,AT(10,,90),Default(%GlobalShowAcceptAll)
-#ENDENABLE
-#ENDENABLE
-#AT(%WindowManagerMethodCodeSection, 'TakeEvent', '(),BYTE'),Description(%ActiveTemplateInstanceDescription),Priority(1000)
- #INSERT(%DebugEventGroup)
-#ENDAT
-#AT(%AcceptLoopBeforeEventHandling),Priority(1)
- #INSERT(%DebugEventGroup)
-#ENDAT
-#CODE(TemplateEmbedFinder,'Template Embed Finder')
-!%EmbedDescription
-  #IF(%EmbedParameters)
- !AT(%EmbedID, %EmbedParameters)
-  #ELSE
- !AT(%EmbedID)
-  #ENDIF
-#!-------------------------------------------------
-#EXTENSION(ProcedureInfoExtension,'Procedure Info Extension Template'),PROCEDURE
-#BOXED  ('')
-#DISPLAY('Procedure Info  Extension Template')
-#DISPLAY('This Template generates code to display Procedure Information.')
-#PROMPT('Disable',CHECK),%DoNotShowDebugInfo
-#DISPLAY('')
-#ENDBOXED 
-!-------------------
-#AT(%AfterWindowOpening),FIRST 
-#IF (%Window <> '')
-%Window{Prop:Alrt,255} = %UDProcAlert   
-#ENDIF
-#ENDAT         
-#AT(%AcceptLoopBeforeEventHandling)   
-#IF ((%ProcedureTemplate <> 'Report') AND (%ProcedureTemplate <> 'UnivProcess') AND (%ProcedureTemplate <> 'UnivReport') AND (%ProcedureTemplate <> 'UnivAbcReport') AND (%ProcedureTemplate <> 'QueueProcess') AND (%ProcedureTemplate <> 'ProcessQueue') AND (%ProcedureTemplate <> 'Process')AND (%ProcedureTemplate <> 'Source'))  
-   IF KEYCODE()=%UDProcAlert AND EVENT() = Event:PreAlertKey
-      CYCLE
-   END
-   IF KEYCODE()=%UDProcAlert  
-      #INSERT(%ShowTheProcedureInfo)
-      CYCLE
-   END
-#ENDIF
-#ENDAT 
-#AT(%ProcedureSetup),PRIORITY(1)  
-#IF(%DoNotShowDebugInfo = 0)
-IF %CLSkelClass.ProcedureInfoToDebugView    
-      %CLSkelClass.Debug('Entering: ' & FORMAT('%Procedure',@S30) & FORMAT(%CLSkelClass.SetShortApplicationName('%Application','%ProgramExtension'),@S20) & ' Last Modified: ' & '%@D02@ProcedureDateChanged @ %@T03@ProcedureTimeChanged') 
-END
-#ENDIF
-#IF ((%ProcedureTemplate <> 'Report') AND (%ProcedureTemplate <> 'UnivProcess') AND (%ProcedureTemplate <> 'UnivReport') AND (%ProcedureTemplate <> 'UnivAbcReport') AND (%ProcedureTemplate <> 'QueueProcess') AND (%ProcedureTemplate <> 'ProcessQueue') AND (%ProcedureTemplate <> 'Process')AND (%ProcedureTemplate <> 'Source'))
-#ELSE    
-   IF BAND(Keystate(),%UDKeyState) 
-      #INSERT(%ShowTheProcedureInfo)
-   END
-#ENDIF
-#ENDAT
-#AT(%ProcessedCode),PRIORITY(1) 
-#IF(%DoNotShowDebugInfo = 0)
-IF %CLSkelClass.ProcedureInfoToDebugView    
-      %CLSkelClass.Debug('Entering: ' & FORMAT('%Procedure',@S30) & FORMAT(%CLSkelClass.SetShortApplicationName('%Application','%ProgramExtension'),@S20) & ' Last Modified: ' & '%@D02@ProcedureDateChanged @ %@T03@ProcedureTimeChanged') 
-END
-#ENDIF
-#ENDAT 
-#AT(%ProcessedCode),PRIORITY(9999) 
-#IF(%DoNotShowDebugInfo = 0)
-IF %CLSkelClass.ProcedureInfoToDebugView    
-      %CLSkelClass.Debug('Leaving: ' & FORMAT('%Procedure',@S30) & FORMAT(%CLSkelClass.SetShortApplicationName('%Application','%ProgramExtension'),@S20) & ' Last Modified: ' & '%@D02@ProcedureDateChanged @ %@T03@ProcedureTimeChanged') 
-END
-#ENDIF
-#ENDAT
-#!------------------------------------------------- 
-#GROUP(%ShowTheProcedureInfo)   
-  #IF (%Window <> '')
-    %CLSkelClass.ShowProcedureInfo('%Procedure',%CLSkelClass.SetApplicationName('%Application','%ProgramExtension'),%Window{PROP:Hlp},'%@D02@ProcedureDateCreated @ %@T03@ProcedureTimeCreated','%@D02@ProcedureDateChanged @ %@T03@ProcedureTimeChanged','%(FORMAT(TODAY(),@D02)) @ %(FORMAT(CLOCK(),@T03))')  
-  #ELSE
-    %CLSkelClass.ShowProcedureInfo('%Procedure',%CLSkelClass.SetApplicationName('%Application','%ProgramExtension'),'None','%@D02@ProcedureDateCreated @ %@T03@ProcedureTimeCreated','%@D02@ProcedureDateChanged @ %@T03@ProcedureTimeChanged','%(FORMAT(TODAY(),@D02)) @ %(FORMAT(CLOCK(),@T03))')  
-  #ENDIF
-#!-------------------------------------------------   
 #GROUP(%InsertedStart)
+!-------------------
+!SystemIdle : Start
+!-------------------
 #!
 #GROUP(%InsertedEnd)
 !-----------------
 !SystemIdle : End
 !-----------------
-#!   
-#GROUP(%TabProcedureInfo) 
-#TAB('Proc Info')
-#PROMPT ('Activate Procedure Info',CHECK),%UDProcInfo,DEFAULT(1)
-#ENABLE(%UDProcInfo)
-#PROMPT ('Alert Key:',KEYCODE),%UDProcAlert,DEFAULT('CtrlShiftP') 
-#PROMPT ('Report Keystate:',@S200),%UDKeyState,DEFAULT('udKeyState:Shift')
-#DISPLAY('Available Keystates are:')
-#DISPLAY('udKeyState:Shift')                         
-#DISPLAY('udKeyState:Ctrl')                          
-#DISPLAY('udKeyState:Alt') 
-#DISPLAY('')
-#DISPLAY('You can use combinations by adding them.')
-#DISPLAY('Example:')
-#DISPLAY('udKeyState:Shift + udKeyState:Ctrl')   
-#DISPLAY('')
-#DISPLAY('For continuous display of Procedure Info in your')                       
-#DISPLAY('DebugView window set Property: ')
-#DISPLAY('    ProcedureInfoToDebugView = TRUE')                       
-#ENDENABLE  
-#ENDTAB
-#!   
-#GROUP(%TabDefaults) 
-#TAB('Defaults')
-#PROMPT('Show All',CHECK),%GlobalShowAll,DEFAULT(%True),AT(10)  
-#DISPLAY('')
-#ENABLE(NOT %GlobalShowAll)
-#PROMPT('ShowField',CHECK),%GlobalShowField,AT(10,,90)
-#PROMPT('ShowFocus',CHECK),%GlobalShowFocus
-#PROMPT('ShowSelected',CHECK),%GlobalShowSelected,AT(10,,90)
-#PROMPT('ShowSelStart',CHECK),%GlobalShowSelStart
-#PROMPT('ShowSelEnd',CHECK),%GlobalShowSelEnd,AT(10,,90)
-#PROMPT('ShowKeyCode',CHECK),%GlobalShowKeyCode
-#PROMPT('ShowError',CHECK),%GlobalShowError,AT(10,,90)
-#PROMPT('ShowThread',CHECK),%GlobalShowThread
-#PROMPT('ShowContents',CHECK),%GlobalShowContents,AT(10,,90)
-#PROMPT('ShowScreenText',CHECK),%GlobalShowScreenText
-#PROMPT('ShowAcceptAll',CHECK),%GlobalShowAcceptAll,AT(10,,90)
-#ENDENABLE 
-#ENDTAB
+#!
 #GROUP(%TabInstructions) 
 #TAB('Instructions')
   #DISPLAY('UltimateDebug'),AT(10,0),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
   #DISPLAY('Class Calls:' )
   #DISPLAY('ud.debug(string)')
-  #DISPLAY(' Displays the contents of the string in the Debug Window.')
-  #DISPLAY('  ex: ud.debug(<39>Show In Debug Window<39>)')
+  #DISPLAY('  Displays the contents of the string.')
+  #DISPLAY('   ex: ud.debug(<39>Show In Debug Window<39>)')
   #DISPLAY('')
   #DISPLAY('ud.debugqueue(queue,<String>')
-  #DISPLAY(' Displays contents of a Queue')
-  #DISPLAY('  ex: ud.debugqueue(myQ,<39>This is my Queue<39>)')
+  #DISPLAY('  Displays contents of a Queue')
+  #DISPLAY('   ex: ud.debugqueue(myQ,<39>This is my Queue<39>)')
   #DISPLAY('')
   #DISPLAY('ud.debugevent(')
-  #DISPLAY(' Displays events as they happen in the Debug Window.')  
-  #DISPLAY('  Place code in TakeEvent embed.')
-  #DISPLAY('  ex: ud.debugevent()')
+  #DISPLAY('  Displays events as they happen.')  
+  #DISPLAY('   Place code in TakeEvent embed.')
+  #DISPLAY('   ex: ud.debugevent()')
+  #DISPLAY('OR Use EXTENSION events template.')
   #DISPLAY('')
-  #DISPLAY('ud.debugclear()')
-  #DISPLAY(' Clears the Debug Window.')
+  #DISPLAY('ud.cleardebugview()')
+  #DISPLAY('  Clears the Debug Window.')
   #DISPLAY('')
-  #DISPLAY('See example app for more information.')
-  #DISPLAY('')
-  #DISPLAY('')         
+  #DISPLAY('See example apps for more information.')
 #ENDTAB
 #!
-#GROUP(%DebugEventGroup)
-  #IF(%UseGlobalDefaults) 
-  %CLSkelClass.ShowAll        = %GlobalShowAll  
-  %CLSkelClass.ShowField      = %GlobalShowField
-  %CLSkelClass.ShowFocus      = %GlobalShowFocus
-  %CLSkelClass.ShowSelected   = %GlobalShowSelected
-  %CLSkelClass.ShowSelStart   = %GlobalShowSelStart
-  %CLSkelClass.ShowSelEnd     = %GlobalShowSelEnd
-  %CLSkelClass.ShowKeyCode    = %GlobalShowKeyCode
-  %CLSkelClass.ShowError      = %GlobalShowError
-  %CLSkelClass.ShowThread     = %GlobalShowThread
-  %CLSkelClass.ShowContents   = %GlobalShowContents
-  %CLSkelClass.ShowScreenText = %GlobalShowScreenText
-  %CLSkelClass.ShowAcceptAll  = %GlobalShowAcceptAll
-  #ELSE
-  %CLSkelClass.ShowAll        = %ShowAll  
-  %CLSkelClass.ShowField      = %ShowField
-  %CLSkelClass.ShowFocus      = %ShowFocus
-  %CLSkelClass.ShowSelected   = %ShowSelected
-  %CLSkelClass.ShowSelStart   = %ShowSelStart
-  %CLSkelClass.ShowSelEnd     = %ShowSelEnd
-  %CLSkelClass.ShowKeyCode    = %ShowKeyCode
-  %CLSkelClass.ShowError      = %ShowError
-  %CLSkelClass.ShowThread     = %ShowThread
-  %CLSkelClass.ShowContents   = %ShowContents
-  %CLSkelClass.ShowScreenText = %ShowScreenText
-  %CLSkelClass.ShowAcceptAll  = %ShowAcceptAll
-  #ENDIF    
-  %CLSkelClass.DebugEvent('%Procedure')
 #!
 #GROUP(%TabCopyright)
 #BOXED,SECTION,AT(0,23,240,42)
@@ -286,6 +56,16 @@ END
   #DISPLAY
   #DISPLAY('Mark Goldberg')
   #DISPLAY('Contributing DebugEvent')
+  #DISPLAY('Contributing Class Refactoring')
+  #DISPLAY
+  #DISPLAY('Roberto Artigas')
+  #DISPLAY('Contributing Global EMBED Marking')
+  #DISPLAY('Contributing Trace ALL Procedures')
+  #DISPLAY('Contributing TEMPLATE for Events')
+  #DISPLAY('Contributing Trace CLW Source Code') 
+  #DISPLAY('')
+  #DISPLAY('William E Atchison Jr')
+  #DISPLAY('Contributing Procedure Exceptions')
   #DISPLAY
 #ENDTAB
 #!
@@ -295,13 +75,34 @@ END
   #DISPLAY
   #DISPLAY('Current Template Set being used by this app.')
   #DISPLAY
-  #DISPLAY('This will be set automatically for you once a compile has')
-  #DISPLAY('been performed.')
+  #DISPLAY('This will be set automatically for you')
+  #DISPLAY('once a compile has been performed.')
   #DISPLAY
   #ENABLE(%False)
     #PROMPT('Template Set:',@S10),%CLSkelFamily,Default(''),AT(90,,95,10)
   #ENDENABLE
   #DISPLAY
+#ENDTAB
+#!
+#!
+#GROUP(%TabTesting) 
+#TAB('Testing')
+  #DISPLAY('Tested 2014-04-14 with C9 and ABC templates.')
+  #DISPLAY('Tested 2014-04-15 with C9 and LEGACY templates.')
+  #DISPLAY('')
+  #DISPLAY('No other tests done.'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+#ENDTAB
+#!
+#!
+#GROUP(%TabPurpose) 
+#TAB('Purpose')
+  #DISPLAY('To track thru Clarion programs and discover code failures.')
+  #DISPLAY('To help in understanding the flow of other individuals code.')
+  #DISPLAY('To discover large systems purposes and how they are achieved.') 
+  #DISPLAY('')
+  #DISPLAY('And while the built in Clarion debbuger can help find individal')
+  #DISPLAY('code failures, it does nothing to help out when the big picture')
+  #DISPLAY('is involved where you have lots of new code to understand.')
 #ENDTAB
 #!
 #!
@@ -335,9 +136,9 @@ END
 #INSERT(%InsertedEnd)
 #!
 #!
-#GROUP(%Wnd)
+#GROUP(%WndKill)
 #INSERT(%InsertedStart)
-  %CLSkelObj.Kill()
+%CLSkelObj.Kill()
 #INSERT(%InsertedEnd)
 #!
 #!
@@ -363,3 +164,66 @@ END
     #ENDIF
   #ENDIF
 #ENDIF
+#!
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
+#! RA.2014.04.14 - Additional documentation for the options button
+#!---------------------------------------------------------------------
+#GROUP(%TabPurpose1) 
+#TAB('Purpose')
+  #DISPLAY('These options get you some application level debug information')
+  #DISPLAY('when the application first starts up.')
+  #DISPLAY('')
+  #DISPLAY('The information displayed is:'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #DISPLAY('Compilation and Library Information')
+  #DISPLAY('Active GLOBAL templates')
+  #DISPLAY('Dictionary GLOBAL variables')
+  #DISPLAY('')
+  #DISPLAY('Procedures are created in the main program adding all the needed')
+  #DISPLAY('tracing debug information. The dump calls those procedures when')
+  #DISPLAY('the application starts.')
+  #DISPLAY('')
+  #DISPLAY('The handy one is the dump of the Dictionary GLOBAL variables.')
+  #DISPLAY('Since Dictionary GLOBAL variables can be accessed from anywhere,')
+  #DISPLAY('poor coding practices can destroy them from anywhere.')
+#ENDTAB
+#!
+#!---------------------------------------------------------------------
+#GROUP(%TabInstructions1) 
+#TAB('Instructions')
+  #DISPLAY('Create global information procedure?'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #DISPLAY('If ON the generation step will create the procedure.')
+  #DISPLAY('')
+  #DISPLAY('Dump global information?'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #DISPLAY('If ON it will display the information when application starts.')
+  #DISPLAY('')
+  #DISPLAY('Create global variables procedure?'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #DISPLAY('If ON the generation step will create the procedure.')
+  #DISPLAY('')
+  #DISPLAY('Dump global variables?'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+  #DISPLAY('If ON it will display the information when application starts.')
+  #!DISPLAY('')
+#ENDTAB
+#!
+#!---------------------------------------------------------------------
+#GROUP(%TabLimitations1) 
+#TAB('Limitations')
+  #DISPLAY('The GLOBAL variable dump procedure will NOT handle arrays.')
+  #DISPLAY('')
+  #DISPLAY('It is designed to dump single variables or single variables in a')
+  #DISPLAY('group or queue. Only a CLIP happens on the GLOBAL variable.')
+  #DISPLAY('')
+  #DISPLAY('So there is NO formating of any kind. If you need it, add it.')
+  #!DISPLAY('')
+#ENDTAB
+#!
+#!---------------------------------------------------------------------
+#GROUP(%TabTesting1) 
+#TAB('Testing')
+  #DISPLAY('Tested 2014-04-14 with C9 and ABC templates.')
+  #DISPLAY('Tested 2014-04-15 with C9 and LEGACY templates.')
+  #DISPLAY('')
+  #DISPLAY('No other tests done.'),PROP(PROP:FontStyle,700),PROP(PROP:FontName,'Tahoma')
+#ENDTAB
+#!---------------------------------------------------------------------
+#!---------------------------------------------------------------------
